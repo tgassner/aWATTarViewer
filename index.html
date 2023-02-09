@@ -1,0 +1,289 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title> aWATTar Viewer</title>
+</head>
+
+<body>
+<script>
+	callDataAsyncFromAPI();
+
+	function callDataAsyncFromAPI(start, end, doCSVDownload) {
+		let url = 'https://api.awattar.at/v1/marketdata';
+		let method = 'GET';
+
+		// check if start or start and end is defined to post to the API		
+		if (start) {
+			url += "?start=" + start;
+			if (end) {
+					url += "&end=" + end;
+			}
+		}
+	
+		// Prepare network magic to call API later
+		let xhr = new XMLHttpRequest();
+		if ("withCredentials" in xhr) {
+			// Most browsers.
+			xhr.open(method, url, true);
+		} else if (typeof XDomainRequest != "undefined") {
+			// IE8 & IE9
+			xhr = new XDomainRequest();
+			xhr.open(method, url);
+		} else {
+			xhr = null; 
+			alert("Sorry not supported by Browser");
+			return;
+	    }
+
+		xhr.onload = function() { // success ;-)
+			if (doCSVDownload) {
+				downloadData(this.response);
+			} else {
+				viewData(this.response);
+			}
+		};
+
+		xhr.onerror = function() { // Fail :-(
+		  alert("Error");
+		};
+
+		// Do the call to the API
+		xhr.send();
+	}
+
+	function viewData(jsonString) {
+		let json = JSON.parse(jsonString);
+        let list = json.data;
+        let currentDate = "";
+
+        let allString = "<div class='divTable'>";
+
+        if (list.length > 0) {
+            let first = list[0];
+            currentDate = extractDatum(first.start_timestamp);
+            allString += "<div class='divDate'><div class='divDate2'>" + currentDate + "</div></div>";
+        }
+
+        for (const priceElement of list) {
+            loopDate = extractDatum(priceElement.start_timestamp);
+            if (loopDate != currentDate) {
+                currentDate = loopDate;
+                allString += "<div class='divDate'><div class='divDate2'>" + currentDate + "</div></div>";
+            }
+            allString += "<div class='divRow'>";
+            let startTimestamp = priceElement.start_timestamp;
+            let endTimestamp = priceElement.end_timestamp;
+            let marketPrice = priceElement.marketprice;
+            let unit = priceElement.unit;
+			if (priceElement.unit == "Eur/MWh") {
+				unit = "Cent/KWh";
+				marketPrice = priceElement.marketprice / 10;
+			}
+
+            //allString += "<div>" + + "</div>";
+            allString += "<div class='divFromTime'>" + getHours(new Date(startTimestamp)) + ":" + getMinutes(new Date(startTimestamp)) +  "</div>";
+            allString += "<div class='divBetweenTime'>-</div>";
+            allString += "<div class='divToTime'>" + getHours(new Date(endTimestamp)) + ":" + getMinutes(new Date(startTimestamp)) +  "</div>";
+			allString += "<div class='divBetweenTimeAndPrice'>=</div>";
+            allString += "<div class='divPrice'>" + parseFloat(marketPrice).toFixed(1) + "</div>";
+			allString += "<div class='divUnit'>" + unit + "</div>";
+
+            //allString += convertMilliesTimestamp(startTimestamp) + " - " + convertMilliesTimestamp(endTimestamp) + "  " + marketPrice + " " + unit + "<br>";
+            allString += "</div>";
+        }
+        allString += "</div>";
+        document.getElementById('daten').innerHTML = allString;
+	}
+
+    function convertMilliesTimestamp(millies) {
+        var date = new Date(millies);
+        return getYears(date) + "-" + getMonths(date) + "-" + getDays(date) + " " + getHours(date) + ":" + getMinutes(date) + ":" + getSeconds(date);
+    }
+
+    function extractDatum(millies) {
+        var date = new Date(millies);
+        return getDays(date) + "." + getMonths(date) + "." + getYears(date);
+    }
+	
+	function extractTime(millies, useSeconds) {
+		let date = new Date(millies);
+		let time = getHours(date) + ":" + getMinutes(date);
+		if (useSeconds)	{	
+			time += ":" + getSeconds(date);
+		}
+		return time;
+	}
+
+    function getYears(date) {
+        return date.getFullYear();
+    }
+    function getMonths(date) {
+        return (((date.getMonth()+1) < 10) ? "0" : "") + (date.getMonth()+1);
+    }
+    function getDays(date) {
+        return ((date.getDate() < 10) ? "0" : "") + date.getDate();
+    }
+    function getHours(date) {
+        return ((date.getHours() < 10) ? "0" : "") + date.getHours();
+    }
+    function getMinutes(date) {
+        return ((date.getMinutes() < 10) ? "0" : "") + date.getMinutes();
+    }
+    function getSeconds(date) {
+        return ((date.getSeconds() < 10) ? "0" : "") + date.getSeconds();
+    }
+
+	function reCall(doCSVDownload) {
+		let start = document.getElementById('inputStart').value;
+		let end = document.getElementById('inputEnd').value;
+		
+		let startMillies = null;		
+		let endMillies = null;
+			startMillies = new Date(start + " 00:00:00").getTime();
+		if (start) {
+			if (end) {
+				endMillies = new Date(end + " 00:00:00").getTime();
+			}
+		} 
+		callDataAsyncFromAPI(startMillies, endMillies, doCSVDownload);	
+	}
+	
+	function downloadData(jsonString) {
+		let json = JSON.parse(jsonString);
+        let list = json.data;
+        let csvRows = [];
+
+		csvRows.push(["start date", "start time", "end date", "end time", "market price", "unit"]);
+
+        for (const priceElement of list) {
+			let startDate = extractDatum(priceElement.start_timestamp);
+			let startTime = extractTime(priceElement.start_timestamp, false);
+			let endDate = extractDatum(priceElement.end_timestamp);
+			let endTime = extractTime(priceElement.end_timestamp);
+			let marketPrice = priceElement.marketprice;
+            let unit = priceElement.unit;
+			if (priceElement.unit == "Eur/MWh") {
+				unit = "Cent/KWh";
+				marketPrice = priceElement.marketprice / 10;
+			}
+
+			let csvRow = [startDate, startTime, endDate, endTime, marketPrice, unit];
+			csvRows.push(csvRow);
+		}
+	
+	
+		let csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
+		var encodedUri = encodeURI(csvContent);
+		var link = document.createElement("a");
+		link.setAttribute("href", encodedUri);
+		link.setAttribute("download", "my_data.csv");
+		document.body.appendChild(link); // Required for FF
+		link.click();
+	}
+
+</script>
+<div id="main">
+	<div id="daten" class="datenDiv"></div>
+	<div class="divUI">
+		<div class="divUIRow"> 
+			<div> 
+				From inclusive: 
+			</div> 
+			<div> 
+				<input id="inputStart" type="date">
+			</div>
+		</div>
+		<div class="divUIRow"> 
+			<div class="divUIElement">
+				To exclusive: 
+			</div>
+			<div class="divUIElement">
+				<input id="inputEnd" type="date">
+			</div>
+		</div>
+		<div class="divUIRow">
+			<div class="divUIElement">
+				<button onclick="reCall(); return false;" style="flex-basis: content;display: flex"> VIEW </button> 
+				<button onclick="reCall(true); return false;" style="flex-basis: content;display: flex"> Download </button> 
+			</div>
+		</div>
+	</div>
+</div>
+<style>
+	// style is nur zwegen der optik, keine Logic
+
+	#main {
+		font-family: 'helvetica neue',Helvetica,Arial,sans-serif;
+		font-size: 30px;
+		flex-direction: column;
+		display:flex;
+	}
+
+    .divTable {
+        flex-shrink: 0;
+        flex-grow: 1;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .divDate2, .datenDiv, .divTable, .divDate, .divRow, .divFromTime, .divBetweenTime, .divBetweenTimeAndPrice, .divToTime, .divPrice ,.divUnit, .divUI, .divUIRow, .divUIElement{
+        display:flex;
+    }
+
+    .divDate, .divFromTime, .divBetweenTime, .divBetweenTimeAndPrice, .divToTime, .divPrice, .divUnit {
+        display:flex;
+        padding-left: 8px;
+        padding-right: 8px;
+        align-items: flex-end;
+    }
+	
+	.divUnit {
+		font-size:small;
+	}
+
+    .datenDiv {
+		flex-basis: content;
+		height: fit-content;
+        flex-shrink: 0;
+        flex-grow: 1;
+	}
+	
+	.divDate2 {
+		margin-top: 10px;
+		font-weight: bold;
+	}
+	
+	.divU
+	
+	.divTable {
+        flex-direction: column;
+        flex-basis: content;
+    }
+
+    .divRow {
+        flex-direction: row;
+		padding-top: 5px;
+		padding-bottom: 5px;
+    }
+
+    .divDate {
+		flex-direction: row;
+    }
+
+	.divUI {
+		flex-basis: content;
+		height: fit-content;
+	    flex-shrink: 0;
+		flex-grow: 1;
+		flex-direction: column;
+		align-items: center;
+		margin-top: 30px;
+	}
+
+	.divUIRow {
+		flex-direction: row;
+	}
+
+</style>
+</body>
+</html>
