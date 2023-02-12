@@ -2,11 +2,16 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title> aWATTar Viewer</title>
+	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.2.1/chart.min.js"></script> -->
+
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 <script>
 	callDataAsyncFromAPI();
+
+	var chartBar = null;
 
 	function callDataAsyncFromAPI(start, end, doCSVDownload) {
 		let url = 'https://api.awattar.at/v1/marketdata';
@@ -55,6 +60,8 @@
 		let json = JSON.parse(jsonString);
         let list = json.data;
         let currentDate = "";
+		var values = [];
+		var datetimes = [];
 
         let allString = "<div class='divTable'>";
 
@@ -79,6 +86,8 @@
 				unit = "Cent/KWh";
 				marketPrice = priceElement.marketprice / 10;
 			}
+			values.push(marketPrice);
+			datetimes.push(getHours(new Date(startTimestamp)) + ":" + getMinutes(new Date(startTimestamp)) + " - " + getHours(new Date(endTimestamp)) + ":" + getMinutes(new Date(startTimestamp)));
 
             //allString += "<div>" + + "</div>";
             allString += "<div class='divFromTime'>" + getHours(new Date(startTimestamp)) + ":" + getMinutes(new Date(startTimestamp)) +  "</div>";
@@ -87,12 +96,74 @@
 			allString += "<div class='divBetweenTimeAndPrice'>=</div>";
             allString += "<div class='divPrice'>" + parseFloat(marketPrice).toFixed(1) + "</div>";
 			allString += "<div class='divUnit'>" + unit + "</div>";
-
-            //allString += convertMilliesTimestamp(startTimestamp) + " - " + convertMilliesTimestamp(endTimestamp) + "  " + marketPrice + " " + unit + "<br>";
             allString += "</div>";
         }
         allString += "</div>";
+
         document.getElementById('daten').innerHTML = allString;
+
+		drawChart(values, datetimes);
+	}
+
+	function drawChart(values, datetimes) {
+		if (Chart === undefined) {
+		    return;
+		}
+
+		const data = {
+			labels: datetimes,
+			/*borderWidth: 1,*/
+			datasets: [{
+				label: "",
+				backgroundColor: ['rgba(173,216,230, 0.5)'],
+				borderColor: ['rgb(0, 0, 255)'],
+				borderWidth: 1,
+				data: values,
+				fill: 'none',
+			}]
+		};
+
+		const config = {
+			type: 'bar',
+			data: data,
+			options: {
+				indexAxis: 'y',
+				maintainAspectRatio: false,
+				scales: {
+					y: {
+						beginAtZero: true,
+						title: {
+							display: true,
+							text: 'Stunden'
+						}
+					},
+					x: {
+						beginAtZero: true,
+						title: {
+							display: true,
+							text: 'Cent'
+						}
+					},
+				},
+				animation: {
+					duration: true,
+				},
+				plugins: {
+					legend: {
+						position: false,
+					},
+					title: {
+						display: false,
+					}
+				}
+			},
+		};
+
+		if (chartBar != null) {
+			chartBar.destroy();
+		}
+
+		chartBar = new Chart(document.getElementById('chartBarCanvas').getContext('2d'), config);
 	}
 
     function convertMilliesTimestamp(millies) {
@@ -184,51 +255,52 @@
 	}
 
 </script>
-<div id="main">
-	<div id="daten" class="datenDiv"></div>
-	<div class="divUI">
-		<div class="divUIRow"> 
-			<div> 
-				From inclusive: 
-			</div> 
-			<div> 
-				<input id="inputStart" type="date">
+<div id="divMain" class="divMain">
+	<div class="divDatenAndUi">
+		<div id="daten" class="datenDiv"></div>
+		<div class="divUI">
+			<div class="divUIRow">
+				<div>
+					From inclusive:
+				</div>
+				<div>
+					<input id="inputStart" type="date">
+				</div>
 			</div>
-		</div>
-		<div class="divUIRow"> 
-			<div class="divUIElement">
-				To exclusive: 
+			<div class="divUIRow">
+				<div class="divUIElement">
+					To exclusive:
+				</div>
+				<div class="divUIElement">
+					<input id="inputEnd" type="date">
+				</div>
 			</div>
-			<div class="divUIElement">
-				<input id="inputEnd" type="date">
-			</div>
-		</div>
-		<div class="divUIRow">
-			<div class="divUIElement">
-				<button onclick="reCall(); return false;" style="flex-basis: content;display: flex"> VIEW </button> 
-				<button onclick="reCall(true); return false;" style="flex-basis: content;display: flex"> Download </button> 
+			<div class="divUIRow">
+				<div class="divUIElement">
+					<button onclick="reCall(); return false;" style="flex-basis: content;display: flex"> VIEW </button>
+					<button onclick="reCall(true); return false;" style="flex-basis: content;display: flex"> Download </button>
+				</div>
 			</div>
 		</div>
 	</div>
+	<div class="divDiagram"><canvas id='chartBarCanvas' style="width:100%"></canvas></div>
 </div>
 <style>
-	// style is nur zwegen der optik, keine Logic
+	/* style is nur zwegen der optik, keine Logic */
 
-	#main {
+	.divMain {
 		font-family: 'helvetica neue',Helvetica,Arial,sans-serif;
-		font-size: 30px;
-		flex-direction: column;
-		display:flex;
+		/* font-size: 30px; */
 	}
 
     .divTable {
         flex-shrink: 0;
         flex-grow: 1;
         align-items: center;
-        flex-direction: column;
+        flex-direction: row;
     }
 
-    .divDate2, .datenDiv, .divTable, .divDate, .divRow, .divFromTime, .divBetweenTime, .divBetweenTimeAndPrice, .divToTime, .divPrice ,.divUnit, .divUI, .divUIRow, .divUIElement{
+    .divDate2, .datenDiv, .divTable, .divDate, .divRow, .divFromTime, .divBetweenTime, .divBetweenTimeAndPrice, .divToTime, .divPrice ,.divUnit, .divUI, .divUIRow, .divUIElement, .divDiagram, .divDatenAndUi, .divMain {
         display:flex;
     }
 
@@ -255,7 +327,17 @@
 		font-weight: bold;
 	}
 	
-	.divU
+	.divUI {
+
+	}
+
+	.divDiagram {
+		width:100%;
+	}
+
+	.divDatenAndUi {
+		flex-direction: column;
+	}
 	
 	.divTable {
         flex-direction: column;
@@ -284,6 +366,21 @@
 
 	.divUIRow {
 		flex-direction: row;
+	}
+
+	@media only screen and (max-width:676px) {
+		.divMain {
+			flex-direction: column;
+		}
+		.divDiagram {
+			height:1000px;
+		}
+	}
+
+	@media only screen and (min-width:677px) {
+		.divMain {
+			flex-direction: row;
+		}
 	}
 
 </style>
