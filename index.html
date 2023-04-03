@@ -94,7 +94,7 @@
             allString += "<div class='divBetweenTime'>-</div>";
             allString += "<div class='divToTime'>" + getHours(new Date(endTimestamp)) + ":" + getMinutes(new Date(startTimestamp)) +  "</div>";
 			allString += "<div class='divBetweenTimeAndPrice'>=</div>";
-            allString += "<div class='divPrice'>" + parseFloat(marketPrice).toFixed(1) + "</div>";
+            allString += "<div class='divPrice'>" + parseFloat(marketPrice).toFixed(1) + " (" + parseFloat(marketPrice * 1.236 + 7.0).toFixed(1) + ")</div>";
 			allString += "<div class='divUnit'>" + unit + "</div>";
             allString += "</div>";
         }
